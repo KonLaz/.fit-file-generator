@@ -128,7 +128,9 @@ export async function GET() {
     summary.errorCount === 0 &&
     summary.fileIdCount === 1 &&
     summary.workoutCount === 1 &&
-    summary.workoutStepCount === 1;
+    summary.workoutStepCount === 1 &&
+    summary.workoutStepWithDurationValueCount === 1 &&
+    summary.workoutStepWithTargetCount === 1;
 
   return NextResponse.json({
     ok,

@@ -4,6 +4,7 @@ import type { Intensity, Target, Workout, WorkoutStep } from "@/lib/workout-mode
 
 const WORKOUT_POWER_WATTS_OFFSET = 1000;
 const SOFTWARE_VERSION = 1;
+const PRODUCT_ID = 0;
 
 function mapIntensity(intensity: Intensity): string {
   switch (intensity) {
@@ -30,7 +31,7 @@ function mapTarget(target: Target): Record<string, number | string> {
   if (target.type === "hr_zone") {
     return {
       targetType: "heartRate",
-      targetHrZone: target.zone,
+      targetValue: target.zone,
     };
   }
 
@@ -38,18 +39,16 @@ function mapTarget(target: Target): Record<string, number | string> {
     return {
       targetType: "power",
       targetValue: 0,
-      targetPowerZone: 0,
-      customTargetPowerLow: target.low + WORKOUT_POWER_WATTS_OFFSET,
-      customTargetPowerHigh: target.high + WORKOUT_POWER_WATTS_OFFSET,
+      customTargetValueLow: target.low + WORKOUT_POWER_WATTS_OFFSET,
+      customTargetValueHigh: target.high + WORKOUT_POWER_WATTS_OFFSET,
     };
   }
 
   return {
     targetType: "power",
     targetValue: 0,
-    targetPowerZone: 0,
-    customTargetPowerLow: target.low,
-    customTargetPowerHigh: target.high,
+    customTargetValueLow: target.low,
+    customTargetValueHigh: target.high,
   };
 }
 
@@ -58,7 +57,7 @@ function mapStep(step: WorkoutStep, messageIndex: number): Record<string, number
     messageIndex,
     wktStepName: step.name,
     durationType: "time",
-    durationTime: step.durationSec,
+    durationValue: step.durationSec * 1000,
     intensity: mapIntensity(step.intensity),
     ...mapTarget(step.target),
   };
@@ -70,7 +69,7 @@ export function encodeWorkoutToFit(workout: Workout): Uint8Array {
 
   encoder.onMesg(Profile.MesgNum.FILE_ID, {
     manufacturer: "development",
-    product: 1,
+    product: PRODUCT_ID,
     type: "workout",
     timeCreated: now,
   });
@@ -112,16 +111,40 @@ export type FitDecodeSummary = {
   fileIdCount: number;
   workoutCount: number;
   workoutStepCount: number;
+  workoutStepWithDurationValueCount: number;
+  workoutStepWithTargetCount: number;
 };
 
 export function decodeFitSummary(bytes: Uint8Array): FitDecodeSummary {
   const decoder = new Decoder(Stream.fromByteArray(Array.from(bytes)));
   const { messages, errors } = decoder.read();
+  const workoutSteps = messages.workoutStepMesgs ?? [];
+
+  const workoutStepWithDurationValueCount = workoutSteps.filter(
+    (step) => typeof step.durationValue === "number" && step.durationValue > 0,
+  ).length;
+
+  const workoutStepWithTargetCount = workoutSteps.filter((step) => {
+    if (step.targetType === "heartRate") {
+      return typeof step.targetValue === "number";
+    }
+
+    if (step.targetType === "power") {
+      return (
+        typeof step.customTargetValueLow === "number" &&
+        typeof step.customTargetValueHigh === "number"
+      );
+    }
+
+    return true;
+  }).length;
 
   return {
     errorCount: errors.length,
     fileIdCount: messages.fileIdMesgs?.length ?? 0,
     workoutCount: messages.workoutMesgs?.length ?? 0,
-    workoutStepCount: messages.workoutStepMesgs?.length ?? 0,
+    workoutStepCount: workoutSteps.length,
+    workoutStepWithDurationValueCount,
+    workoutStepWithTargetCount,
   };
 }
