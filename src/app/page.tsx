@@ -92,6 +92,15 @@ function targetSummary(target: Target): string {
   return `${target.low}-${target.high} ${unit}`;
 }
 
+const formLabelClass =
+  "flex flex-col gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]";
+
+const formControlClass =
+  "h-10 border border-[var(--line)] bg-white px-3 text-sm font-medium text-[var(--foreground)] outline-none transition focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-soft)]";
+
+const stepControlButtonClass =
+  "h-8 border border-[var(--line)] bg-white px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--foreground)] transition hover:bg-[var(--surface)] disabled:cursor-not-allowed disabled:opacity-40";
+
 export default function Home() {
   const [workout, setWorkout] = useState<WorkoutDraft>(() =>
     toDraft(cloneWorkout(thresholdBuilderTemplate)),
@@ -189,69 +198,74 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(135deg,#f8fafc_0%,#fef3c7_45%,#dcfce7_100%)] px-4 py-8 text-slate-900 sm:px-6 lg:px-10">
-      <main className="mx-auto w-full max-w-6xl">
-        <header className="mb-6 rounded-2xl border border-amber-100 bg-white/80 p-6 shadow-sm backdrop-blur">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-teal-800">
+    <div className="min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--foreground)] sm:px-6 lg:px-10">
+      <main className="mx-auto w-full max-w-[1200px] space-y-6">
+        <header className="swiss-reveal relative overflow-hidden border-2 border-[var(--foreground)] bg-[var(--surface)] p-6 sm:p-8">
+          <div aria-hidden className="absolute right-0 top-0 h-full w-3 bg-[var(--accent)]" />
+          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[var(--muted)]">
             Phase 1
           </p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+          <h1 className="mt-3 max-w-3xl text-3xl font-bold leading-tight tracking-[-0.02em] text-[var(--foreground)] sm:text-5xl">
             Wahoo Workout Builder
           </h1>
-          <p className="mt-2 max-w-3xl text-sm text-slate-600">
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[var(--muted)] sm:text-base">
             Build time-based interval workouts in the browser. This client model is
             intentionally stable so Phase 2 can add server-side FIT export without changing
             the UI contract.
           </p>
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <label className="flex w-full flex-col gap-1 text-sm font-medium text-slate-700">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.75fr)_minmax(280px,1fr)]">
+          <section className="swiss-reveal border-2 border-[var(--foreground)] bg-[var(--surface)] p-5 [animation-delay:80ms] sm:p-6">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <label className={`${formLabelClass} w-full`}>
                 Workout name
                 <input
                   value={workout.name}
                   onChange={(event) => setField("name", event.target.value)}
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                  className={`${formControlClass} h-11`}
                   placeholder="Example: Threshold Builder"
                 />
                 {issueMap.has("name") ? (
-                  <span className="text-xs text-red-700">{issueMap.get("name")}</span>
+                  <span className="text-xs normal-case tracking-normal text-[var(--danger-fg)]">
+                    {issueMap.get("name")}
+                  </span>
                 ) : null}
               </label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 self-start lg:self-auto">
                 <button
                   type="button"
                   onClick={resetTemplate}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                  className="h-11 border-2 border-[var(--foreground)] bg-white px-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--foreground)] transition hover:bg-[var(--surface)]"
                 >
                   Reset
                 </button>
                 <button
                   type="button"
                   onClick={validateCurrentWorkout}
-                  className="rounded-lg bg-teal-700 px-3 py-2 text-sm font-medium text-white transition hover:bg-teal-800"
+                  className="h-11 border-2 border-[var(--foreground)] bg-[var(--accent)] px-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-white transition hover:brightness-95"
                 >
                   Validate
                 </button>
               </div>
             </div>
 
-            <div className="mt-5 space-y-4">
+            <div className="mt-6 space-y-4">
               {workout.steps.map((step, index) => (
                 <article
                   key={step.uiId}
-                  className="rounded-xl border border-slate-200 bg-slate-50/70 p-4"
+                  className="border border-[var(--line)] border-l-4 border-l-[var(--accent)] bg-white p-4 shadow-[6px_6px_0_0_rgb(0_0_0_/_0.06)]"
                 >
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <h2 className="text-sm font-semibold text-slate-800">Step {index + 1}</h2>
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <h2 className="text-sm font-bold uppercase tracking-[0.18em] text-[var(--foreground)]">
+                      Step {index + 1}
+                    </h2>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => moveStep(index, "up")}
                         disabled={index === 0}
-                        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        className={stepControlButtonClass}
                       >
                         Up
                       </button>
@@ -259,14 +273,14 @@ export default function Home() {
                         type="button"
                         onClick={() => moveStep(index, "down")}
                         disabled={index === workout.steps.length - 1}
-                        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        className={stepControlButtonClass}
                       >
                         Down
                       </button>
                       <button
                         type="button"
                         onClick={() => removeStep(index)}
-                        className="rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs font-semibold text-red-700 transition hover:bg-red-100"
+                        className="h-8 border border-[var(--danger-fg)] bg-[var(--danger-bg)] px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--danger-fg)] transition hover:brightness-95"
                       >
                         Remove
                       </button>
@@ -274,7 +288,7 @@ export default function Home() {
                   </div>
 
                   <div className="grid gap-3 md:grid-cols-4">
-                    <label className="flex flex-col gap-1 text-xs font-medium uppercase tracking-wide text-slate-600 md:col-span-2">
+                    <label className={`${formLabelClass} md:col-span-2`}>
                       Step name
                       <input
                         value={step.name}
@@ -284,16 +298,16 @@ export default function Home() {
                             name: event.target.value,
                           }))
                         }
-                        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                        className={`${formControlClass} normal-case tracking-normal`}
                       />
                       {issueMap.has(`steps.${index}.name`) ? (
-                        <span className="text-xs normal-case tracking-normal text-red-700">
+                        <span className="text-xs normal-case tracking-normal text-[var(--danger-fg)]">
                           {issueMap.get(`steps.${index}.name`)}
                         </span>
                       ) : null}
                     </label>
 
-                    <label className="flex flex-col gap-1 text-xs font-medium uppercase tracking-wide text-slate-600">
+                    <label className={formLabelClass}>
                       Duration (sec)
                       <input
                         type="number"
@@ -306,16 +320,16 @@ export default function Home() {
                             durationSec: Number(event.target.value),
                           }))
                         }
-                        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                        className={`${formControlClass} normal-case tracking-normal`}
                       />
                       {issueMap.has(`steps.${index}.durationSec`) ? (
-                        <span className="text-xs normal-case tracking-normal text-red-700">
+                        <span className="text-xs normal-case tracking-normal text-[var(--danger-fg)]">
                           {issueMap.get(`steps.${index}.durationSec`)}
                         </span>
                       ) : null}
                     </label>
 
-                    <label className="flex flex-col gap-1 text-xs font-medium uppercase tracking-wide text-slate-600">
+                    <label className={formLabelClass}>
                       Intensity
                       <select
                         value={step.intensity}
@@ -325,7 +339,7 @@ export default function Home() {
                             intensity: event.target.value as Intensity,
                           }))
                         }
-                        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                        className={`${formControlClass} normal-case tracking-normal`}
                       >
                         {intensityOptions.map((option) => (
                           <option key={option} value={option}>
@@ -337,14 +351,14 @@ export default function Home() {
                   </div>
 
                   <div className="mt-3 grid gap-3 md:grid-cols-4">
-                    <label className="flex flex-col gap-1 text-xs font-medium uppercase tracking-wide text-slate-600 md:col-span-2">
+                    <label className={`${formLabelClass} md:col-span-2`}>
                       Target type
                       <select
                         value={step.target.type}
                         onChange={(event) =>
                           setTargetType(index, event.target.value as Target["type"])
                         }
-                        className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                        className={`${formControlClass} normal-case tracking-normal`}
                       >
                         {targetTypeOptions.map((option) => (
                           <option key={option} value={option}>
@@ -356,7 +370,7 @@ export default function Home() {
 
                     {step.target.type === "power_pct_ftp" || step.target.type === "power_watts" ? (
                       <>
-                        <label className="flex flex-col gap-1 text-xs font-medium uppercase tracking-wide text-slate-600">
+                        <label className={formLabelClass}>
                           Low
                           <input
                             type="number"
@@ -380,15 +394,15 @@ export default function Home() {
                                 };
                               })
                             }
-                            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                            className={`${formControlClass} normal-case tracking-normal`}
                           />
                           {issueMap.has(`steps.${index}.target.low`) ? (
-                            <span className="text-xs normal-case tracking-normal text-red-700">
+                            <span className="text-xs normal-case tracking-normal text-[var(--danger-fg)]">
                               {issueMap.get(`steps.${index}.target.low`)}
                             </span>
                           ) : null}
                         </label>
-                        <label className="flex flex-col gap-1 text-xs font-medium uppercase tracking-wide text-slate-600">
+                        <label className={formLabelClass}>
                           High
                           <input
                             type="number"
@@ -412,10 +426,10 @@ export default function Home() {
                                 };
                               })
                             }
-                            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                            className={`${formControlClass} normal-case tracking-normal`}
                           />
                           {issueMap.has(`steps.${index}.target.high`) ? (
-                            <span className="text-xs normal-case tracking-normal text-red-700">
+                            <span className="text-xs normal-case tracking-normal text-[var(--danger-fg)]">
                               {issueMap.get(`steps.${index}.target.high`)}
                             </span>
                           ) : null}
@@ -424,7 +438,7 @@ export default function Home() {
                     ) : null}
 
                     {step.target.type === "hr_zone" ? (
-                      <label className="flex flex-col gap-1 text-xs font-medium uppercase tracking-wide text-slate-600">
+                      <label className={formLabelClass}>
                         Zone
                         <input
                           type="number"
@@ -446,10 +460,10 @@ export default function Home() {
                               };
                             })
                           }
-                          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal normal-case text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                          className={`${formControlClass} normal-case tracking-normal`}
                         />
                         {issueMap.has(`steps.${index}.target.zone`) ? (
-                          <span className="text-xs normal-case tracking-normal text-red-700">
+                          <span className="text-xs normal-case tracking-normal text-[var(--danger-fg)]">
                             {issueMap.get(`steps.${index}.target.zone`)}
                           </span>
                         ) : null}
@@ -463,23 +477,23 @@ export default function Home() {
             <button
               type="button"
               onClick={addStep}
-              className="mt-4 rounded-lg border border-dashed border-teal-300 bg-teal-50 px-4 py-2 text-sm font-semibold text-teal-800 transition hover:bg-teal-100"
+              className="mt-5 h-11 border-2 border-dashed border-[var(--foreground)] bg-white px-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--foreground)] transition hover:bg-[var(--surface)]"
             >
               + Add Step
             </button>
           </section>
 
           <aside className="space-y-4">
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
+            <section className="swiss-reveal border-2 border-[var(--foreground)] bg-[var(--surface)] p-5 [animation-delay:140ms]">
+              <h2 className="text-sm font-bold uppercase tracking-[0.18em] text-[var(--foreground)]">
                 Summary
               </h2>
-              <dl className="mt-3 space-y-3 text-sm text-slate-700">
-                <div className="flex items-center justify-between">
+              <dl className="mt-4 space-y-3 text-sm text-[var(--foreground)]">
+                <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
                   <dt>Sport</dt>
-                  <dd className="font-semibold">Cycling</dd>
+                  <dd className="font-semibold uppercase">{workout.sport}</dd>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
                   <dt>Total steps</dt>
                   <dd className="font-semibold">{workout.steps.length}</dd>
                 </div>
@@ -489,43 +503,46 @@ export default function Home() {
                 </div>
               </dl>
               {issueMap.has("steps") ? (
-                <p className="mt-3 text-xs text-red-700">{issueMap.get("steps")}</p>
+                <p className="mt-3 text-xs text-[var(--danger-fg)]">{issueMap.get("steps")}</p>
               ) : null}
             </section>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
+            <section className="swiss-reveal border-2 border-[var(--foreground)] bg-[var(--surface)] p-5 [animation-delay:200ms]">
+              <h2 className="text-sm font-bold uppercase tracking-[0.18em] text-[var(--foreground)]">
                 Step targets
               </h2>
-              <ul className="mt-3 space-y-2 text-sm text-slate-700">
+              <ul className="mt-4 space-y-2 text-sm text-[var(--foreground)]">
                 {workout.steps.map((step, index) => (
-                  <li key={`summary-${step.uiId}`} className="rounded-lg bg-slate-50 px-3 py-2">
+                  <li
+                    key={`summary-${step.uiId}`}
+                    className="border border-[var(--line)] bg-white px-3 py-2"
+                  >
                     <span className="font-medium">{index + 1}. </span>
                     <span>{step.name || "Untitled step"}</span>
-                    <p className="text-xs text-slate-500">
-                      {formatDuration(step.durationSec)} | {targetSummary(step.target)}
+                    <p className="text-xs text-[var(--muted)]">
+                      {formatDuration(step.durationSec)} · {targetSummary(step.target)}
                     </p>
                   </li>
                 ))}
               </ul>
             </section>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
+            <section className="swiss-reveal border-2 border-[var(--foreground)] bg-[var(--surface)] p-5 [animation-delay:260ms]">
+              <h2 className="text-sm font-bold uppercase tracking-[0.18em] text-[var(--foreground)]">
                 Validation status
               </h2>
               {validationState === "idle" ? (
-                <p className="mt-2 text-sm text-slate-600">
+                <p className="mt-3 text-sm text-[var(--muted)]">
                   Run validation after edits to confirm the workout is ready for Phase 2 export.
                 </p>
               ) : null}
               {validationState === "valid" ? (
-                <p className="mt-2 rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
+                <p className="mt-3 border border-[var(--success-fg)] bg-[var(--success-bg)] px-3 py-2 text-sm font-semibold text-[var(--success-fg)]">
                   Workout is valid and ready for server-side FIT export integration.
                 </p>
               ) : null}
               {validationState === "invalid" ? (
-                <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
+                <p className="mt-3 border border-[var(--danger-fg)] bg-[var(--danger-bg)] px-3 py-2 text-sm font-semibold text-[var(--danger-fg)]">
                   Validation failed. Fix the highlighted fields.
                 </p>
               ) : null}
