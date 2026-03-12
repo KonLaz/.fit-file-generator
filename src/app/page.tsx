@@ -26,7 +26,6 @@ const intensityOptions: Intensity[] = ["warmup", "active", "recovery", "cooldown
 const targetTypeOptions: Target["type"][] = [
   "none",
   "power_pct_ftp",
-  "power_watts",
   "hr_zone",
 ];
 
@@ -79,13 +78,51 @@ function labelForTargetType(targetType: Target["type"]): string {
   return "No target";
 }
 
-function targetSummary(target: Target): string {
+function pctToWatts(percentOfFtp: number, ftpWatts: number): number {
+  return Math.max(1, Math.round((percentOfFtp / 100) * ftpWatts));
+}
+
+function isValidFtp(ftpWatts: number): boolean {
+  return Number.isFinite(ftpWatts) && ftpWatts > 0;
+}
+
+function numberInputValue(value: number): number | "" {
+  return Number.isFinite(value) ? value : "";
+}
+
+function mapWorkoutForExport(workout: Workout, ftpWatts: number): Workout {
+  return {
+    ...workout,
+    steps: workout.steps.map((step) => {
+      if (step.target.type !== "power_pct_ftp") {
+        return step;
+      }
+
+      return {
+        ...step,
+        target: {
+          type: "power_watts",
+          low: pctToWatts(step.target.low, ftpWatts),
+          high: pctToWatts(step.target.high, ftpWatts),
+        },
+      };
+    }),
+  };
+}
+
+function targetSummary(target: Target, ftpWatts: number): string {
   if (target.type === "none") {
     return "Free ride";
   }
 
   if (target.type === "hr_zone") {
     return `HR Z${target.zone}`;
+  }
+
+  if (target.type === "power_pct_ftp" && isValidFtp(ftpWatts)) {
+    const lowWatts = pctToWatts(target.low, ftpWatts);
+    const highWatts = pctToWatts(target.high, ftpWatts);
+    return `${target.low}-${target.high}% FTP (${lowWatts}-${highWatts} W)`;
   }
 
   const unit = target.type === "power_pct_ftp" ? "% FTP" : "W";
@@ -123,6 +160,7 @@ export default function Home() {
     toDraft(cloneWorkout(thresholdBuilderTemplate)),
   );
   const [nextStepId, setNextStepId] = useState(workout.steps.length + 1);
+  const [ftpWatts, setFtpWatts] = useState(250);
   const [issues, setIssues] = useState<ValidationIssue[]>([]);
   const [validationState, setValidationState] = useState<"idle" | "valid" | "invalid">(
     "idle",
@@ -193,8 +231,6 @@ export default function Home() {
 
       if (targetType === "power_pct_ftp") {
         nextTarget = { type: "power_pct_ftp", low: 90, high: 100 };
-      } else if (targetType === "power_watts") {
-        nextTarget = { type: "power_watts", low: 220, high: 250 };
       } else if (targetType === "hr_zone") {
         nextTarget = { type: "hr_zone", zone: 3 };
       }
@@ -210,6 +246,13 @@ export default function Home() {
   }
 
   async function exportWorkout() {
+    if (!isValidFtp(ftpWatts)) {
+      setValidationState("idle");
+      setExportError("Enter a valid FTP in watts before exporting.");
+      setExportMessage(null);
+      return;
+    }
+
     const nextIssues = validateWorkout(workoutModel);
     setIssues(nextIssues);
 
@@ -226,12 +269,13 @@ export default function Home() {
     setExportMessage(null);
 
     try {
+      const exportWorkoutModel = mapWorkoutForExport(workoutModel, ftpWatts);
       const response = await fetch("/api/export-fit", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(workoutModel),
+        body: JSON.stringify(exportWorkoutModel),
       });
 
       if (!response.ok) {
@@ -290,35 +334,56 @@ export default function Home() {
         <header className="swiss-reveal relative overflow-hidden border-2 border-[var(--foreground)] bg-[var(--surface)] p-6 sm:p-8">
           <div aria-hidden className="absolute right-0 top-0 h-full w-3 bg-[var(--accent)]" />
           <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[var(--muted)]">
-            Phase 1
+            FIT Workout Export
           </p>
           <h1 className="mt-3 max-w-3xl text-3xl font-bold leading-tight tracking-[-0.02em] text-[var(--foreground)] sm:text-5xl">
-            Wahoo Workout Builder
+            Create Structured Workouts for Wahoo ELEMNT
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[var(--muted)] sm:text-base">
-            Build time-based interval workouts in the browser. This client model is
-            intentionally stable so Phase 2 can add server-side FIT export without changing
-            the UI contract.
+            Enter your FTP once, build time-based intervals, and export a `.fit` workout
+            you can copy to your device&apos;s `plans` folder over USB.
           </p>
         </header>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1.75fr)_minmax(280px,1fr)]">
           <section className="swiss-reveal border-2 border-[var(--foreground)] bg-[var(--surface)] p-5 [animation-delay:80ms] sm:p-6">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-              <label className={`${formLabelClass} w-full`}>
-                Workout name
-                <input
-                  value={workout.name}
-                  onChange={(event) => setField("name", event.target.value)}
-                  className={`${formControlClass} h-11`}
-                  placeholder="Example: Threshold Builder"
-                />
-                {issueMap.has("name") ? (
-                  <span className="text-xs normal-case tracking-normal text-[var(--danger-fg)]">
-                    {issueMap.get("name")}
-                  </span>
-                ) : null}
-              </label>
+              <div className="grid w-full gap-3 sm:grid-cols-[minmax(0,1fr)_160px]">
+                <label className={`${formLabelClass} w-full`}>
+                  Workout name
+                  <input
+                    value={workout.name}
+                    onChange={(event) => setField("name", event.target.value)}
+                    className={`${formControlClass} h-11`}
+                    placeholder="Example: Threshold Builder"
+                  />
+                  {issueMap.has("name") ? (
+                    <span className="text-xs normal-case tracking-normal text-[var(--danger-fg)]">
+                      {issueMap.get("name")}
+                    </span>
+                  ) : null}
+                </label>
+                <label className={formLabelClass}>
+                  FTP (watts)
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={numberInputValue(ftpWatts)}
+                    onChange={(event) => {
+                      setFtpWatts(event.target.valueAsNumber);
+                      setExportError(null);
+                      setExportMessage(null);
+                    }}
+                    className={`${formControlClass} h-11`}
+                  />
+                  {!isValidFtp(ftpWatts) ? (
+                    <span className="text-xs normal-case tracking-normal text-[var(--danger-fg)]">
+                      Enter a valid FTP.
+                    </span>
+                  ) : null}
+                </label>
+              </div>
               <div className="flex gap-2 self-start lg:self-auto">
                 <button
                   type="button"
@@ -338,7 +403,7 @@ export default function Home() {
                   type="button"
                   onClick={exportWorkout}
                   disabled={isExporting}
-                  className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-11 border-2 border-[var(--foreground)] bg-emerald-700 px-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-white transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isExporting ? "Exporting..." : "Export .FIT"}
                 </button>
@@ -408,11 +473,11 @@ export default function Home() {
                         type="number"
                         min={1}
                         step={1}
-                        value={step.durationSec}
+                        value={numberInputValue(step.durationSec)}
                         onChange={(event) =>
                           updateStep(index, (current) => ({
                             ...current,
-                            durationSec: Number(event.target.value),
+                            durationSec: event.target.valueAsNumber,
                           }))
                         }
                         className={`${formControlClass} normal-case tracking-normal`}
@@ -466,11 +531,11 @@ export default function Home() {
                     {step.target.type === "power_pct_ftp" || step.target.type === "power_watts" ? (
                       <>
                         <label className={formLabelClass}>
-                          Low
+                          {step.target.type === "power_pct_ftp" ? "Low (% FTP)" : "Low (W)"}
                           <input
                             type="number"
                             min={1}
-                            value={step.target.low}
+                            value={numberInputValue(step.target.low)}
                             onChange={(event) =>
                               updateStep(index, (current) => {
                                 if (
@@ -484,7 +549,7 @@ export default function Home() {
                                   ...current,
                                   target: {
                                     ...current.target,
-                                    low: Number(event.target.value),
+                                    low: event.target.valueAsNumber,
                                   },
                                 };
                               })
@@ -498,11 +563,11 @@ export default function Home() {
                           ) : null}
                         </label>
                         <label className={formLabelClass}>
-                          High
+                          {step.target.type === "power_pct_ftp" ? "High (% FTP)" : "High (W)"}
                           <input
                             type="number"
                             min={1}
-                            value={step.target.high}
+                            value={numberInputValue(step.target.high)}
                             onChange={(event) =>
                               updateStep(index, (current) => {
                                 if (
@@ -516,7 +581,7 @@ export default function Home() {
                                   ...current,
                                   target: {
                                     ...current.target,
-                                    high: Number(event.target.value),
+                                    high: event.target.valueAsNumber,
                                   },
                                 };
                               })
@@ -529,6 +594,16 @@ export default function Home() {
                             </span>
                           ) : null}
                         </label>
+                        {step.target.type === "power_pct_ftp" ? (
+                          <p className="md:col-span-2 text-xs normal-case tracking-normal text-[var(--muted)]">
+                            {isValidFtp(ftpWatts)
+                              ? `Estimated target: ${pctToWatts(step.target.low, ftpWatts)}-${pctToWatts(
+                                  step.target.high,
+                                  ftpWatts,
+                                )} W`
+                              : "Enter FTP above to calculate watts."}
+                          </p>
+                        ) : null}
                       </>
                     ) : null}
 
@@ -539,7 +614,7 @@ export default function Home() {
                           type="number"
                           min={1}
                           max={5}
-                          value={step.target.zone}
+                          value={numberInputValue(step.target.zone)}
                           onChange={(event) =>
                             updateStep(index, (current) => {
                               if (current.target.type !== "hr_zone") {
@@ -550,7 +625,7 @@ export default function Home() {
                                 ...current,
                                 target: {
                                   ...current.target,
-                                  zone: Number(event.target.value) as 1 | 2 | 3 | 4 | 5,
+                                  zone: event.target.valueAsNumber as 1 | 2 | 3 | 4 | 5,
                                 },
                               };
                             })
@@ -592,6 +667,10 @@ export default function Home() {
                   <dt>Total steps</dt>
                   <dd className="font-semibold">{workout.steps.length}</dd>
                 </div>
+                <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
+                  <dt>FTP</dt>
+                  <dd className="font-semibold">{isValidFtp(ftpWatts) ? `${ftpWatts} W` : "-"}</dd>
+                </div>
                 <div className="flex items-center justify-between">
                   <dt>Total duration</dt>
                   <dd className="font-semibold">{formatDuration(totalDuration)}</dd>
@@ -615,7 +694,7 @@ export default function Home() {
                     <span className="font-medium">{index + 1}. </span>
                     <span>{step.name || "Untitled step"}</span>
                     <p className="text-xs text-[var(--muted)]">
-                      {formatDuration(step.durationSec)} · {targetSummary(step.target)}
+                      {formatDuration(step.durationSec)} · {targetSummary(step.target, ftpWatts)}
                     </p>
                   </li>
                 ))}
