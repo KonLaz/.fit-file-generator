@@ -101,6 +101,23 @@ const formControlClass =
 const stepControlButtonClass =
   "h-8 border border-[var(--line)] bg-white px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--foreground)] transition hover:bg-[var(--surface)] disabled:cursor-not-allowed disabled:opacity-40";
 
+function fileNameFromDisposition(disposition: string | null): string {
+  if (!disposition) {
+    return "workout.fit";
+  }
+
+  const match = disposition.match(/filename="([^"]+)"/i);
+  if (!match) {
+    return "workout.fit";
+  }
+
+  return match[1];
+}
+
+type ApiErrorResponse = {
+  error?: string;
+};
+
 export default function Home() {
   const [workout, setWorkout] = useState<WorkoutDraft>(() =>
     toDraft(cloneWorkout(thresholdBuilderTemplate)),
@@ -110,6 +127,9 @@ export default function Home() {
   const [validationState, setValidationState] = useState<"idle" | "valid" | "invalid">(
     "idle",
   );
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const workoutModel = useMemo(() => toWorkoutModel(workout), [workout]);
   const totalDuration = useMemo(() => totalDurationSec(workoutModel), [workoutModel]);
@@ -189,12 +209,79 @@ export default function Home() {
     setValidationState(nextIssues.length === 0 ? "valid" : "invalid");
   }
 
+  async function exportWorkout() {
+    const nextIssues = validateWorkout(workoutModel);
+    setIssues(nextIssues);
+
+    if (nextIssues.length > 0) {
+      setValidationState("invalid");
+      setExportError("Cannot export yet. Fix the highlighted validation issues first.");
+      setExportMessage(null);
+      return;
+    }
+
+    setValidationState("valid");
+    setIsExporting(true);
+    setExportError(null);
+    setExportMessage(null);
+
+    try {
+      const response = await fetch("/api/export-fit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(workoutModel),
+      });
+
+      if (!response.ok) {
+        let errorMessage = "Export failed.";
+
+        try {
+          const body = (await response.json()) as ApiErrorResponse;
+          if (typeof body.error === "string" && body.error.length > 0) {
+            errorMessage = body.error;
+          }
+        } catch {
+          // keep fallback message when JSON parsing fails
+        }
+
+        throw new Error(errorMessage);
+      }
+
+      const fileBlob = await response.blob();
+      const fileName = fileNameFromDisposition(
+        response.headers.get("content-disposition"),
+      );
+      const objectUrl = URL.createObjectURL(fileBlob);
+      const anchor = document.createElement("a");
+
+      anchor.href = objectUrl;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(objectUrl);
+
+      setExportMessage(`Downloaded ${fileName}`);
+      setExportError(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to export workout.";
+      setExportError(message);
+      setExportMessage(null);
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
   function resetTemplate() {
     const nextWorkout = toDraft(cloneWorkout(thresholdBuilderTemplate));
     setWorkout(nextWorkout);
     setNextStepId(nextWorkout.steps.length + 1);
     setIssues([]);
     setValidationState("idle");
+    setExportError(null);
+    setExportMessage(null);
   }
 
   return (
@@ -246,6 +333,14 @@ export default function Home() {
                   className="h-11 border-2 border-[var(--foreground)] bg-[var(--accent)] px-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-white transition hover:brightness-95"
                 >
                   Validate
+                </button>
+                <button
+                  type="button"
+                  onClick={exportWorkout}
+                  disabled={isExporting}
+                  className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isExporting ? "Exporting..." : "Export .FIT"}
                 </button>
               </div>
             </div>
@@ -544,6 +639,16 @@ export default function Home() {
               {validationState === "invalid" ? (
                 <p className="mt-3 border border-[var(--danger-fg)] bg-[var(--danger-bg)] px-3 py-2 text-sm font-semibold text-[var(--danger-fg)]">
                   Validation failed. Fix the highlighted fields.
+                </p>
+              ) : null}
+              {exportMessage ? (
+                <p className="mt-2 rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">
+                  {exportMessage}
+                </p>
+              ) : null}
+              {exportError ? (
+                <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-800">
+                  {exportError}
                 </p>
               ) : null}
             </section>
