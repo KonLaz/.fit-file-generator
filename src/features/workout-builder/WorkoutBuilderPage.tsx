@@ -1,12 +1,18 @@
 "use client";
 
+import Link from "next/link";
+import { useState } from "react";
+
 import { EditorPanel } from "@/features/workout-builder/components/EditorPanel";
+import { GetHelpModal } from "@/features/workout-builder/components/GetHelpModal";
 import { GetStartedOverlay } from "@/features/workout-builder/components/GetStartedOverlay";
 import { SummarySidebar } from "@/features/workout-builder/components/SummarySidebar";
 import { WorkoutsModal } from "@/features/workout-builder/components/WorkoutsModal";
 import { useWorkoutBuilder } from "@/features/workout-builder/hooks/use-workout-builder";
 
 export function WorkoutBuilderPage() {
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+
   const {
     workout,
     ftpWatts,
@@ -67,17 +73,49 @@ export function WorkoutBuilderPage() {
       <main className="mx-auto w-full max-w-[1200px] space-y-6">
         <header className="swiss-reveal relative overflow-hidden border-2 border-[var(--foreground)] bg-[var(--surface)] p-6 sm:p-8">
           <div aria-hidden className="absolute right-0 top-0 h-full w-3 bg-[var(--accent)]" />
-          <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[var(--muted)]">
-            FIT Workout Export
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[var(--muted)]">
+              FIT Workout Export
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => setIsHelpOpen(true)}
+                className="h-9 border border-[var(--foreground)] bg-white px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--foreground)] transition hover:bg-[var(--surface)]"
+              >
+                Get Help
+              </button>
+              <Link
+                href="/feedback"
+                className="inline-flex h-9 items-center justify-center border border-[var(--foreground)] bg-white px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--foreground)] transition hover:bg-[var(--surface)]"
+              >
+                Feedback
+              </Link>
+            </div>
+          </div>
           <h1 className="mt-3 max-w-3xl text-3xl font-bold leading-tight tracking-[-0.02em] text-[var(--foreground)] sm:text-5xl">
             Create Structured Workouts for Wahoo ELEMNT
           </h1>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[var(--muted)] sm:text-base">
-            Enter your FTP once, build time-based intervals, and export a `.fit` workout you can
-            copy to your device&apos;s `plans` folder over USB.
+            Set FTP - build intervals fast -  export a ready-to-sync `.fit` file.
           </p>
         </header>
+
+        <section className="swiss-reveal border-2 border-[var(--foreground)] bg-[var(--surface)] p-5 [animation-delay:40ms] sm:p-6">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--muted)]">
+            About
+          </p>
+          <h2 className="mt-2 text-lg font-bold uppercase tracking-[0.08em] text-[var(--foreground)]">
+            About the creator
+          </h2>
+          <p className="mt-2 max-w-4xl text-sm leading-relaxed text-[var(--foreground)]">
+            Add your personal intro here: who you are, your coaching or riding background, and why
+            you built this tool.
+          </p>
+          <p className="mt-1 max-w-4xl text-xs text-[var(--muted)]">
+            Suggested: short bio, training philosophy, and links to your website/socials.
+          </p>
+        </section>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1.75fr)_minmax(280px,1fr)]">
           <EditorPanel
@@ -136,6 +174,8 @@ export function WorkoutBuilderPage() {
         closeWorkoutsModal={closeWorkoutsModal}
         selectWorkoutFromModal={selectWorkoutFromModal}
       />
+
+      <GetHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
 
       <GetStartedOverlay
         isWorkoutsModalOpen={isWorkoutsModalOpen}
