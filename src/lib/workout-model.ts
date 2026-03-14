@@ -27,6 +27,11 @@ export type ValidationIssue = {
 };
 
 const MAX_STEP_DURATION_SEC = 6 * 60 * 60;
+export const MAX_WORKOUT_NAME_LENGTH = 120;
+export const MAX_STEP_NAME_LENGTH = 120;
+export const MAX_WORKOUT_STEPS = 250;
+export const MAX_TOTAL_DURATION_SEC = 12 * 60 * 60;
+const INTENSITY_VALUES: Intensity[] = ["warmup", "active", "recovery", "cooldown"];
 
 export const thresholdBuilderTemplate: Workout = {
   name: "Threshold Builder",
@@ -95,11 +100,65 @@ function isInteger(value: number): boolean {
   return Number.isInteger(value);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isTargetPayload(target: unknown): target is Target {
+  if (!isRecord(target) || typeof target.type !== "string") {
+    return false;
+  }
+
+  if (target.type === "none") {
+    return true;
+  }
+
+  if (target.type === "hr_zone") {
+    return typeof target.zone === "number";
+  }
+
+  if (target.type === "power_pct_ftp" || target.type === "power_watts") {
+    return typeof target.low === "number" && typeof target.high === "number";
+  }
+
+  return false;
+}
+
+export function isWorkoutPayload(payload: unknown): payload is Workout {
+  if (!isRecord(payload)) {
+    return false;
+  }
+
+  if (
+    typeof payload.name !== "string" ||
+    payload.sport !== "cycling" ||
+    !Array.isArray(payload.steps)
+  ) {
+    return false;
+  }
+
+  return payload.steps.every(
+    (step) =>
+      isRecord(step) &&
+      typeof step.name === "string" &&
+      typeof step.durationSec === "number" &&
+      typeof step.intensity === "string" &&
+      INTENSITY_VALUES.includes(step.intensity as Intensity) &&
+      isTargetPayload(step.target),
+  );
+}
+
 export function validateWorkout(workout: Workout): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
   if (!workout.name.trim()) {
     issues.push({ path: "name", message: "Workout name is required." });
+  }
+  if (workout.name.length > MAX_WORKOUT_NAME_LENGTH) {
+    issues.push({
+      path: "name",
+      message: `Workout name must be at most ${MAX_WORKOUT_NAME_LENGTH} characters.`,
+    });
   }
 
   if (workout.steps.length === 0) {
@@ -108,12 +167,31 @@ export function validateWorkout(workout: Workout): ValidationIssue[] {
       message: "Add at least one workout step.",
     });
   }
+  if (workout.steps.length > MAX_WORKOUT_STEPS) {
+    issues.push({
+      path: "steps",
+      message: `Workout can include at most ${MAX_WORKOUT_STEPS} steps.`,
+    });
+  }
 
   workout.steps.forEach((step, index) => {
     if (!step.name.trim()) {
       issues.push({
         path: `steps.${index}.name`,
         message: "Step name is required.",
+      });
+    }
+    if (step.name.length > MAX_STEP_NAME_LENGTH) {
+      issues.push({
+        path: `steps.${index}.name`,
+        message: `Step name must be at most ${MAX_STEP_NAME_LENGTH} characters.`,
+      });
+    }
+
+    if (!INTENSITY_VALUES.includes(step.intensity)) {
+      issues.push({
+        path: `steps.${index}.intensity`,
+        message: "Intensity must be warmup, active, recovery, or cooldown.",
       });
     }
 
@@ -168,6 +246,14 @@ export function validateWorkout(workout: Workout): ValidationIssue[] {
       }
     }
   });
+
+  const totalSec = totalDurationSec(workout);
+  if (isFiniteNumber(totalSec) && totalSec > MAX_TOTAL_DURATION_SEC) {
+    issues.push({
+      path: "steps",
+      message: `Total duration must be at most ${MAX_TOTAL_DURATION_SEC} seconds.`,
+    });
+  }
 
   return issues;
 }

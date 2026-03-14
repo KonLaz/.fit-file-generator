@@ -1,89 +1,72 @@
 import { NextResponse } from "next/server";
 
-import {
-  decodeFitSummary,
-  encodeWorkoutToFit,
-  toFitFileName,
-} from "@/lib/fit-export";
-import type { Target, Workout } from "@/lib/workout-model";
-import { validateWorkout } from "@/lib/workout-model";
+import { decodeFitSummary, encodeWorkoutToFit, toFitFileName } from "@/lib/fit-export";
+import { isWorkoutPayload, type Workout, validateWorkout } from "@/lib/workout-model";
 
 export const runtime = "nodejs";
+
+const MAX_REQUEST_BYTES = 64 * 1024;
+const JSON_CONTENT_TYPE = "application/json";
 
 type ApiError = {
   error: string;
   details?: unknown;
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function isTargetPayload(target: unknown): target is Target {
-  if (!isRecord(target) || typeof target.type !== "string") {
-    return false;
-  }
-
-  if (target.type === "none") {
-    return true;
-  }
-
-  if (target.type === "hr_zone") {
-    return typeof target.zone === "number";
-  }
-
-  if (target.type === "power_pct_ftp" || target.type === "power_watts") {
-    return typeof target.low === "number" && typeof target.high === "number";
-  }
-
-  return false;
-}
-
-function isWorkoutPayload(payload: unknown): payload is Workout {
-  if (!isRecord(payload)) {
-    return false;
-  }
-
-  if (
-    typeof payload.name !== "string" ||
-    payload.sport !== "cycling" ||
-    !Array.isArray(payload.steps)
-  ) {
-    return false;
-  }
-
-  return payload.steps.every(
-    (step) =>
-      isRecord(step) &&
-      typeof step.name === "string" &&
-      typeof step.durationSec === "number" &&
-      typeof step.intensity === "string" &&
-      isTargetPayload(step.target),
-  );
-}
-
-function badRequest(error: string, details?: unknown) {
+function jsonError(status: number, error: string, details?: unknown) {
   const body: ApiError = { error, ...(details ? { details } : {}) };
-  return NextResponse.json(body, { status: 400 });
+  return NextResponse.json(body, {
+    status,
+    headers: {
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
+function requestByteLength(request: Request, body: string): number {
+  const headerValue = request.headers.get("content-length");
+  if (headerValue) {
+    const parsed = Number.parseInt(headerValue, 10);
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return parsed;
+    }
+  }
+
+  return new TextEncoder().encode(body).byteLength;
 }
 
 export async function POST(request: Request) {
-  let payload: unknown;
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().includes(JSON_CONTENT_TYPE)) {
+    return jsonError(400, "Expected application/json request body.");
+  }
 
+  let rawBody = "";
   try {
-    payload = await request.json();
+    rawBody = await request.text();
   } catch {
-    return badRequest("Invalid JSON body.");
+    return jsonError(400, "Invalid request body.");
+  }
+
+  const bodyBytes = requestByteLength(request, rawBody);
+  if (bodyBytes > MAX_REQUEST_BYTES) {
+    return jsonError(413, `Payload too large. Maximum size is ${MAX_REQUEST_BYTES} bytes.`);
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    return jsonError(400, "Invalid JSON body.");
   }
 
   if (!isWorkoutPayload(payload)) {
-    return badRequest("Payload does not match Workout shape.");
+    return jsonError(400, "Payload does not match Workout shape.");
   }
 
   const issues = validateWorkout(payload);
-
   if (issues.length > 0) {
-    return badRequest("Workout validation failed.", issues);
+    return jsonError(400, "Workout validation failed.", issues);
   }
 
   try {
@@ -99,16 +82,16 @@ export async function POST(request: Request) {
         "Cache-Control": "no-store",
       },
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown FIT export error.";
-    return NextResponse.json(
-      { error: "Failed to generate FIT file.", details: message },
-      { status: 500 },
-    );
+  } catch {
+    return jsonError(500, "Failed to generate FIT file.");
   }
 }
 
 export async function GET() {
+  if (process.env.NODE_ENV === "production") {
+    return jsonError(404, "Not found.");
+  }
+
   const smokeWorkout: Workout = {
     name: "Smoke Export",
     sport: "cycling",
@@ -132,8 +115,15 @@ export async function GET() {
     summary.workoutStepWithDurationValueCount === 1 &&
     summary.workoutStepWithTargetCount === 1;
 
-  return NextResponse.json({
-    ok,
-    summary,
-  });
+  return NextResponse.json(
+    {
+      ok,
+      summary,
+    },
+    {
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    },
+  );
 }
