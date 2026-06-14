@@ -1,7 +1,12 @@
 import { cloneWorkout, type Intensity, type Target, type Workout, type WorkoutStep } from "@/lib/workout-model";
 
 import { intensityPowerDefaults } from "@/features/workout-builder/constants";
-import type { ProfileBlock, StepDraft, WorkoutDraft } from "@/features/workout-builder/types";
+import type {
+  ProfileBlock,
+  RepeatSetDraft,
+  StepDraft,
+  WorkoutDraft,
+} from "@/features/workout-builder/types";
 
 export function toDraft(workout: Workout): WorkoutDraft {
   return {
@@ -187,111 +192,31 @@ export function estimateWorkoutTss(workout: Workout, ftpWatts: number): number {
 }
 
 export function buildProfileBlocks(workout: Workout, ftpWatts: number): ProfileBlock[] {
-  const shortStepThresholdSec = 45;
-
-  type InternalBlock = {
-    uiId: string;
-    primaryName: string;
-    durationSec: number;
-    intensity: Intensity;
-    ifSecondsSum: number;
-    peakIfValue: number;
-    stepCount: number;
-    targetSummaries: string[];
-    includesShortBursts: boolean;
-  };
-
-  function fallbackIf(intensity: Intensity): number {
-    const range = intensityPowerDefaults[intensity];
-    return (range.low + range.high) / 200;
-  }
-
-  function mergeBlocks(
-    previous: InternalBlock,
-    current: InternalBlock,
-    includesShortBursts: boolean,
-  ) {
-    previous.durationSec += current.durationSec;
-    previous.ifSecondsSum += current.ifSecondsSum;
-    if (current.peakIfValue > previous.peakIfValue) {
-      previous.peakIfValue = current.peakIfValue;
-      previous.intensity = current.intensity;
-    }
-    previous.stepCount += current.stepCount;
-    previous.targetSummaries = [...previous.targetSummaries, ...current.targetSummaries];
-    previous.includesShortBursts = previous.includesShortBursts || includesShortBursts;
-  }
-
-  const internalBlocks = workout.steps.reduce<InternalBlock[]>((blocks, step, index) => {
-    const durationSec = Number.isFinite(step.durationSec) && step.durationSec > 0 ? step.durationSec : 1;
-    const ifValue = estimateStepIf(step, ftpWatts) ?? fallbackIf(step.intensity);
-    const stepName = step.name.trim() || `Step ${index + 1}`;
-    const target = targetSummary(step.target, ftpWatts);
-    const currentBlock: InternalBlock = {
-      uiId: `profile-${index + 1}`,
-      primaryName: stepName,
-      durationSec,
-      intensity: step.intensity,
-      ifSecondsSum: ifValue * durationSec,
-      peakIfValue: ifValue,
-      stepCount: 1,
-      targetSummaries: [target],
-      includesShortBursts: false,
-    };
-
-    const previousBlock = blocks[blocks.length - 1];
-    const isShortStep = durationSec <= shortStepThresholdSec;
-
-    if (previousBlock && isShortStep) {
-      mergeBlocks(previousBlock, currentBlock, true);
-      return blocks;
-    }
-
-    blocks.push(currentBlock);
-    return blocks;
-  }, []);
-
-  const compressedBlocks = internalBlocks.reduce<InternalBlock[]>((blocks, block) => {
-    const previousBlock = blocks[blocks.length - 1];
-
-    if (!previousBlock) {
-      blocks.push(block);
-      return blocks;
-    }
-
-    const previousIf = previousBlock.ifSecondsSum / previousBlock.durationSec;
-    const currentIf = block.ifSecondsSum / block.durationSec;
-
-    if (previousBlock.intensity === block.intensity && Math.abs(previousIf - currentIf) <= 0.08) {
-      mergeBlocks(previousBlock, block, block.includesShortBursts);
-      return blocks;
-    }
-
-    blocks.push(block);
-    return blocks;
-  }, []);
-
   let elapsedSec = 0;
 
-  return compressedBlocks.map((block, index) => {
-    const ifValue = block.ifSecondsSum / block.durationSec;
+  return workout.steps.map((step, index) => {
+    const durationSec = Number.isFinite(step.durationSec) && step.durationSec > 0 ? step.durationSec : 1;
+    const fallbackRange = intensityPowerDefaults[step.intensity];
+    const ifValue = estimateStepIf(step, ftpWatts) ?? (fallbackRange.low + fallbackRange.high) / 200;
+    const stepName = step.name.trim() || `Step ${index + 1}`;
     const startSec = elapsedSec;
-    const endSec = elapsedSec + block.durationSec;
+    const endSec = elapsedSec + durationSec;
+
     elapsedSec = endSec;
 
     return {
-      uiId: `${block.uiId}-${index + 1}`,
-      primaryName: block.primaryName,
+      uiId: `profile-${index + 1}`,
+      primaryName: stepName,
       startSec,
       endSec,
-      durationSec: block.durationSec,
-      durationWeight: Math.max(1, block.durationSec),
+      durationSec,
+      intensity: step.intensity,
+      durationWeight: Math.max(1, durationSec),
       ifValue,
-      heightPercent: Math.max(8, Math.min(100, Math.round(ifValue * 100))),
-      intensity: block.intensity,
-      stepCount: block.stepCount,
-      targetSummaries: block.targetSummaries,
-      includesShortBursts: block.includesShortBursts,
+      heightPercent: Math.max(8, Math.round(ifValue * 100)),
+      stepCount: 1,
+      targetSummaries: [targetSummary(step.target, ftpWatts)],
+      includesShortBursts: durationSec <= 45,
     };
   });
 }
@@ -354,4 +279,38 @@ export function fileNameFromDisposition(disposition: string | null): string {
   }
 
   return match[1];
+}
+
+function repeatStepName(baseName: string, repeatIndex: number, totalRepeats: number): string {
+  const trimmedName = baseName.trim();
+  const safeName = trimmedName.length > 0 ? trimmedName : "Interval";
+
+  return totalRepeats > 1 ? `${safeName} ${repeatIndex + 1}` : safeName;
+}
+
+export function createRepeatSteps(repeatSet: RepeatSetDraft, startingStepId: number): StepDraft[] {
+  const safeRepeats = Number.isFinite(repeatSet.repeats)
+    ? Math.max(1, Math.trunc(repeatSet.repeats))
+    : 1;
+
+  return Array.from({ length: safeRepeats }).flatMap((_entry, repeatIndex) => {
+    const offset = repeatIndex * 2;
+
+    return [
+      {
+        uiId: `step-${startingStepId + offset}`,
+        name: repeatStepName(repeatSet.work.name, repeatIndex, safeRepeats),
+        durationSec: repeatSet.work.durationSec,
+        target: cloneTarget(repeatSet.work.target),
+        intensity: repeatSet.work.intensity,
+      },
+      {
+        uiId: `step-${startingStepId + offset + 1}`,
+        name: repeatStepName(repeatSet.recovery.name, repeatIndex, safeRepeats),
+        durationSec: repeatSet.recovery.durationSec,
+        target: cloneTarget(repeatSet.recovery.target),
+        intensity: repeatSet.recovery.intensity,
+      },
+    ];
+  });
 }

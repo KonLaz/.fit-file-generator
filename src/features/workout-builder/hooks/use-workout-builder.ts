@@ -26,6 +26,7 @@ import {
   fileNameFromDisposition,
   isValidFtp,
   mapWorkoutForExport,
+  createRepeatSteps,
   targetFromIntensity,
   toWorkoutModel,
 } from "@/features/workout-builder/logic";
@@ -33,6 +34,7 @@ import type {
   ApiErrorResponse,
   BlockPreset,
   IssueMap,
+  RepeatSetDraft,
   StepDraft,
   TickMark,
   TourPopupLayout,
@@ -54,6 +56,7 @@ export function useWorkoutBuilder() {
   const [activeWorkoutFolderId, setActiveWorkoutFolderId] = useState(
     workoutFolders[0]?.id ?? "threshold",
   );
+  const [activeWorkoutPresetId, setActiveWorkoutPresetId] = useState<string | null>(null);
   const [isGetStartedOpen, setIsGetStartedOpen] = useState(true);
   const [getStartedStepIndex, setGetStartedStepIndex] = useState(0);
   const [tourPopupLayout, setTourPopupLayout] = useState<TourPopupLayout>({
@@ -101,6 +104,13 @@ export function useWorkoutBuilder() {
 
   const activeWorkoutFolder =
     workoutFolders.find((folder) => folder.id === activeWorkoutFolderId) ?? workoutFolders[0];
+  const activeWorkoutPreset =
+    workoutFolders.flatMap((folder) => folder.workouts).find((preset) => preset.id === activeWorkoutPresetId) ??
+    null;
+  const selectedWorkoutFolder =
+    workoutFolders.find((folder) =>
+      folder.workouts.some((preset) => preset.id === activeWorkoutPresetId),
+    ) ?? null;
 
   const activeGetStartedStep = isGetStartedOpen ? getStartedTourSteps[getStartedStepIndex] : null;
   const isLastGetStartedStep = getStartedStepIndex >= getStartedTourSteps.length - 1;
@@ -412,8 +422,15 @@ export function useWorkoutBuilder() {
 
   const applyWorkoutPreset = useCallback((preset: WorkoutPreset) => {
     const nextWorkout = buildDraftFromWorkout(preset.workout, preset.label);
+    const presetFolder =
+      workoutFolders.find((folder) => folder.workouts.some((entry) => entry.id === preset.id)) ?? null;
+
     setWorkout(nextWorkout);
     setNextStepId(nextWorkout.steps.length + 1);
+    setActiveWorkoutPresetId(preset.id);
+    if (presetFolder) {
+      setActiveWorkoutFolderId(presetFolder.id);
+    }
     setIssues([]);
     setDraggedStepIndex(null);
     setDropTargetIndex(null);
@@ -422,8 +439,12 @@ export function useWorkoutBuilder() {
   }, []);
 
   const openWorkoutsModal = useCallback(() => {
+    if (selectedWorkoutFolder) {
+      setActiveWorkoutFolderId(selectedWorkoutFolder.id);
+    }
+
     setIsWorkoutsModalOpen(true);
-  }, []);
+  }, [selectedWorkoutFolder]);
 
   const selectWorkoutFromModal = useCallback(
     (preset: WorkoutPreset) => {
@@ -501,10 +522,28 @@ export function useWorkoutBuilder() {
     }
   }, [ftpWatts, workoutModel]);
 
+  const addRepeatSet = useCallback(
+    (repeatSet: RepeatSetDraft) => {
+      const nextSteps = createRepeatSteps(repeatSet, nextStepId);
+
+      if (nextSteps.length === 0) {
+        return;
+      }
+
+      setWorkout((previous) => ({ ...previous, steps: [...previous.steps, ...nextSteps] }));
+      setNextStepId((previous) => previous + nextSteps.length);
+      setExportError(null);
+      setExportMessage(null);
+    },
+    [nextStepId],
+  );
+
   const resetTemplate = useCallback(() => {
     const nextWorkout = buildDraftFromWorkout(thresholdBuilderTemplate);
     setWorkout(nextWorkout);
     setNextStepId(nextWorkout.steps.length + 1);
+    setActiveWorkoutPresetId(null);
+    setActiveWorkoutFolderId(workoutFolders[0]?.id ?? "threshold");
     setIssues([]);
     setDraggedStepIndex(null);
     setDropTargetIndex(null);
@@ -561,6 +600,9 @@ export function useWorkoutBuilder() {
   return {
     workout,
     workoutModel,
+    activeWorkoutPreset,
+    activeWorkoutPresetId,
+    selectedWorkoutFolder,
     ftpWatts,
     issues,
     issueMap,
@@ -596,6 +638,7 @@ export function useWorkoutBuilder() {
     openWorkoutsModal,
     closeWorkoutsModal,
     selectWorkoutFromModal,
+    addRepeatSet,
     addPresetBlock,
     duplicateStep,
     moveStep,

@@ -32,6 +32,19 @@ export type BlockPreset = {
   step: WorkoutStep;
 };
 
+export type RepeatSetStepDraft = {
+  name: string;
+  durationSec: number;
+  intensity: Intensity;
+  target: Extract<Target, { type: "power_pct_ftp" }>;
+};
+
+export type RepeatSetDraft = {
+  repeats: number;
+  work: RepeatSetStepDraft;
+  recovery: RepeatSetStepDraft;
+};
+
 export type TourStepId = "ftp" | "workouts" | "blocks" | "custom";
 
 export type TourStep = {

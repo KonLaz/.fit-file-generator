@@ -18,13 +18,24 @@ import {
   numberInputValue,
   pctToWatts,
 } from "@/features/workout-builder/logic";
-import type { IssueMap, StepDraft, TourStepId, WorkoutDraft } from "@/features/workout-builder/types";
+import { RepeatSetBuilder } from "@/features/workout-builder/components/RepeatSetBuilder";
+import type {
+  IssueMap,
+  RepeatSetDraft,
+  StepDraft,
+  TourStepId,
+  WorkoutDraft,
+  WorkoutFolder,
+  WorkoutPreset,
+} from "@/features/workout-builder/types";
 
 type EditorPanelProps = {
   workout: WorkoutDraft;
   ftpWatts: number;
   issueMap: IssueMap;
   isExporting: boolean;
+  activeWorkoutPreset: WorkoutPreset | null;
+  selectedWorkoutFolder: WorkoutFolder | null;
   draggedStepIndex: number | null;
   dropTargetIndex: number | null;
   ftpTourRef: RefObject<HTMLLabelElement | null>;
@@ -37,6 +48,7 @@ type EditorPanelProps = {
   resetTemplate: () => void;
   exportWorkout: () => Promise<void>;
   openWorkoutsModal: () => void;
+  addRepeatSet: (repeatSet: RepeatSetDraft) => void;
   addPresetBlock: (preset: (typeof blockPresets)[number]) => void;
   duplicateStep: (index: number) => void;
   moveStep: (index: number, direction: "up" | "down") => void;
@@ -56,6 +68,8 @@ export function EditorPanel({
   ftpWatts,
   issueMap,
   isExporting,
+  activeWorkoutPreset,
+  selectedWorkoutFolder,
   draggedStepIndex,
   dropTargetIndex,
   ftpTourRef,
@@ -68,6 +82,7 @@ export function EditorPanel({
   resetTemplate,
   exportWorkout,
   openWorkoutsModal,
+  addRepeatSet,
   addPresetBlock,
   duplicateStep,
   moveStep,
@@ -154,6 +169,23 @@ export function EditorPanel({
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">
             Prefilled workouts
           </p>
+          <div className="mt-3 border border-[var(--line)] bg-[var(--surface)] p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+              Loaded workout
+            </p>
+            <p className="mt-1 text-sm font-bold uppercase tracking-[0.12em] text-[var(--foreground)]">
+              {activeWorkoutPreset?.label ?? "Custom workout"}
+            </p>
+            <p className="mt-1 text-xs text-[var(--muted)]">
+              {activeWorkoutPreset?.description ??
+                "This is a custom workout. Open the library to load a prebuilt cycling session."}
+            </p>
+            <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
+              {selectedWorkoutFolder
+                ? `${selectedWorkoutFolder.label} library · ${workout.steps.length} steps`
+                : `${workout.steps.length} editable steps`}
+            </p>
+          </div>
           <button
             type="button"
             onClick={openWorkoutsModal}
@@ -161,10 +193,10 @@ export function EditorPanel({
           >
             <span>
               <span className="block text-sm font-bold uppercase tracking-[0.18em] text-[var(--foreground)]">
-                Workouts
+                {activeWorkoutPreset ? "Choose another workout" : "Workouts"}
               </span>
               <span className="mt-1 block text-xs text-[var(--muted)]">
-                Open folder to browse threshold, sprint, endurance, and recovery sessions.
+                Open the library to browse threshold, sprint, endurance, and recovery sessions.
               </span>
             </span>
             <span className="text-2xl font-bold text-[var(--foreground)]">▸</span>
@@ -193,6 +225,8 @@ export function EditorPanel({
           </div>
         </div>
       </div>
+
+      <RepeatSetBuilder addRepeatSet={addRepeatSet} />
 
       <div className="mt-6 space-y-4">
         <p className="text-xs font-medium text-[var(--muted)]">Drag any block card to reorder quickly.</p>

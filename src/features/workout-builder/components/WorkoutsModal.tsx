@@ -7,6 +7,7 @@ type WorkoutsModalProps = {
   workoutsModalRef: RefObject<HTMLElement | null>;
   quickWorkoutPresets: WorkoutPreset[];
   workoutFolders: WorkoutFolder[];
+  activeWorkoutPresetId: string | null;
   activeWorkoutFolder: WorkoutFolder | undefined;
   activeWorkoutFolderId: string;
   setActiveWorkoutFolderId: (id: string) => void;
@@ -19,6 +20,7 @@ export function WorkoutsModal({
   workoutsModalRef,
   quickWorkoutPresets,
   workoutFolders,
+  activeWorkoutPresetId,
   activeWorkoutFolder,
   activeWorkoutFolderId,
   setActiveWorkoutFolderId,
@@ -61,17 +63,26 @@ export function WorkoutsModal({
           Quick picks
         </p>
         <div className="mt-2 flex flex-wrap gap-2">
-          {quickWorkoutPresets.map((preset) => (
-            <button
-              key={`modal-quick-${preset.id}`}
-              type="button"
-              onClick={() => selectWorkoutFromModal(preset)}
-              className="h-9 border border-[var(--foreground)] bg-[var(--surface)] px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--foreground)] transition hover:bg-white"
-              title={preset.description}
-            >
-              {preset.label}
-            </button>
-          ))}
+          {quickWorkoutPresets.map((preset) => {
+            const isActive = preset.id === activeWorkoutPresetId;
+
+            return (
+              <button
+                key={`modal-quick-${preset.id}`}
+                type="button"
+                aria-pressed={isActive}
+                onClick={() => selectWorkoutFromModal(preset)}
+                className={`h-9 border px-3 text-[10px] font-semibold uppercase tracking-[0.12em] transition ${
+                  isActive
+                    ? "border-[var(--foreground)] bg-[var(--accent)] text-white"
+                    : "border-[var(--foreground)] bg-[var(--surface)] text-[var(--foreground)] hover:bg-white"
+                }`}
+                title={preset.description}
+              >
+                {preset.label}
+              </button>
+            );
+          })}
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-[180px_minmax(0,1fr)]">
@@ -99,22 +110,31 @@ export function WorkoutsModal({
                 </p>
                 <p className="mt-1 text-xs text-[var(--muted)]">{activeWorkoutFolder.description}</p>
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                  {activeWorkoutFolder.workouts.map((preset) => (
-                    <button
-                      key={`modal-preset-${preset.id}`}
-                      type="button"
-                      onClick={() => selectWorkoutFromModal(preset)}
-                      className="border border-[var(--line)] bg-white px-3 py-2 text-left transition hover:bg-[var(--surface)]"
-                      title={preset.description}
-                    >
-                      <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--foreground)]">
-                        {preset.label}
-                      </span>
-                      <span className="mt-1 block text-xs text-[var(--muted)]">
-                        {preset.description}
-                      </span>
-                    </button>
-                  ))}
+                  {activeWorkoutFolder.workouts.map((preset) => {
+                    const isActive = preset.id === activeWorkoutPresetId;
+
+                    return (
+                      <button
+                        key={`modal-preset-${preset.id}`}
+                        type="button"
+                        aria-pressed={isActive}
+                        onClick={() => selectWorkoutFromModal(preset)}
+                        className={`border px-3 py-2 text-left transition ${
+                          isActive
+                            ? "border-[var(--foreground)] bg-[var(--accent-soft)]"
+                            : "border-[var(--line)] bg-white hover:bg-[var(--surface)]"
+                        }`}
+                        title={preset.description}
+                      >
+                        <span className="block text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--foreground)]">
+                          {preset.label}
+                        </span>
+                        <span className="mt-1 block text-xs text-[var(--muted)]">
+                          {preset.description}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </>
             ) : null}

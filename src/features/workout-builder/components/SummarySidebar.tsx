@@ -26,75 +26,103 @@ export function SummarySidebar({
   exportMessage,
   exportError,
 }: SummarySidebarProps) {
+  const peakIfValue = profileBlocks.reduce((max, block) => Math.max(max, block.ifValue), 1);
+  const profileScaleMax = Math.max(1, Math.ceil(peakIfValue * 4) / 4);
+  const ftpReferenceLineBottom = profileScaleMax > 1 ? `${(100 / profileScaleMax).toFixed(2)}%` : null;
+  const profileMinWidth = Math.max(520, profileBlocks.length * 24);
+
   return (
     <aside className="space-y-4">
       <section className="swiss-reveal border-2 border-[var(--foreground)] bg-[var(--surface)] p-5 [animation-delay:120ms]">
         <h2 className="text-sm font-bold uppercase tracking-[0.18em] text-[var(--foreground)]">
           Workout profile
         </h2>
+        <p className="mt-2 text-xs text-[var(--muted)]">
+          Scale peaks to {Math.round(profileScaleMax * 100)}% FTP
+          {ftpReferenceLineBottom ? " with a dashed 100% FTP reference line." : "."}
+        </p>
         <div className="mt-4 border border-[var(--line)] bg-white p-3">
-          <div className="h-36 border border-[var(--line)] bg-[linear-gradient(to_top,_transparent_49%,_rgb(15_23_42_/_0.05)_50%)] p-2">
-            {workout.steps.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-xs text-[var(--muted)]">
-                Add blocks to preview intensity and duration.
-              </div>
-            ) : (
-              <div className="grid h-full grid-cols-[30px_minmax(0,1fr)] gap-2">
-                <div className="flex h-full flex-col justify-between text-[10px] font-semibold text-[var(--muted)]">
-                  <span>100%</span>
-                  <span>50%</span>
-                  <span>0%</span>
-                </div>
-                <div className="flex h-full items-end gap-1 border-l border-[var(--line)] pl-2">
-                  {profileBlocks.map((block, index) => {
-                    const ifPercent = Math.round(block.ifValue * 100);
-                    const targetList = Array.from(new Set(block.targetSummaries));
-                    const blockLabel =
-                      block.stepCount === 1
-                        ? block.primaryName
-                        : `${block.primaryName} +${block.stepCount - 1} blocks`;
-
-                    return (
-                      <div
-                        key={block.uiId}
-                        className="group relative flex h-full min-w-0 items-end"
-                        style={{ flexGrow: block.durationWeight }}
-                        tabIndex={0}
-                        aria-label={`${blockLabel}, ${ifPercent}% FTP, ${formatDuration(block.durationSec)}`}
-                      >
+          <div className="overflow-x-auto">
+            <div style={{ minWidth: `${profileMinWidth}px` }}>
+              <div className="h-36 border border-[var(--line)] bg-[linear-gradient(to_top,_transparent_49%,_rgb(15_23_42_/_0.05)_50%)] p-2">
+                {workout.steps.length === 0 ? (
+                  <div className="flex h-full items-center justify-center text-xs text-[var(--muted)]">
+                    Add blocks to preview intensity and duration.
+                  </div>
+                ) : (
+                  <div className="grid h-full grid-cols-[40px_minmax(0,1fr)] gap-2">
+                    <div className="flex h-full flex-col justify-between text-[10px] font-semibold text-[var(--muted)]">
+                      <span>{Math.round(profileScaleMax * 100)}%</span>
+                      <span>{Math.round((profileScaleMax / 2) * 100)}%</span>
+                      <span>0%</span>
+                    </div>
+                    <div className="relative flex h-full items-end gap-1 border-l border-[var(--line)] pl-2">
+                      {ftpReferenceLineBottom ? (
                         <div
-                          className={`w-full border border-white/70 ${intensityBarClass(block.intensity)}`}
-                          style={{ height: `${block.heightPercent}%` }}
+                          aria-hidden
+                          className="pointer-events-none absolute left-2 right-0 border-t border-dashed border-[var(--accent)]/60"
+                          style={{ bottom: ftpReferenceLineBottom }}
                         />
-                        <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-64 -translate-x-1/2 border border-[var(--foreground)] bg-white p-2 text-[10px] text-[var(--foreground)] shadow-[4px_4px_0_0_rgb(0_0_0_/_0.1)] group-hover:block group-focus:block">
-                          <p className="font-bold uppercase tracking-[0.1em]">{blockLabel}</p>
-                          <p className="mt-1 text-[var(--muted)]">
-                            Time {formatDuration(block.startSec)} - {formatDuration(block.endSec)}
-                          </p>
-                          <p className="text-[var(--muted)]">
-                            Duration {formatDuration(block.durationSec)} · {ifPercent}% FTP
-                          </p>
-                          <p className="text-[var(--muted)]">
-                            {labelForIntensity(block.intensity)}
-                            {block.includesShortBursts ? " · includes short bursts" : ""}
-                          </p>
-                          <p className="mt-1 line-clamp-2 text-[var(--foreground)]">
-                            {targetList.slice(0, 2).join(" · ")}
-                            {targetList.length > 2 ? " …" : ""}
-                          </p>
-                          <p className="text-[var(--muted)]">Block {index + 1}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      ) : null}
+                      {profileBlocks.map((block, index) => {
+                        const ifPercent = Math.round(block.ifValue * 100);
+                        const targetList = Array.from(new Set(block.targetSummaries));
+                        const blockLabel =
+                          block.stepCount === 1
+                            ? block.primaryName
+                            : `${block.primaryName} +${block.stepCount - 1} blocks`;
+
+                        return (
+                          <div
+                            key={block.uiId}
+                            className="group relative flex h-full min-w-0 items-end"
+                            style={{
+                              flexGrow: block.durationWeight,
+                              minWidth: block.includesShortBursts ? "12px" : undefined,
+                            }}
+                            tabIndex={0}
+                            aria-label={`${blockLabel}, ${ifPercent}% FTP, ${formatDuration(block.durationSec)}`}
+                          >
+                            <div
+                              className={`w-full border border-white/70 ${intensityBarClass(block.intensity)}`}
+                              style={{
+                                height: `${Math.max(
+                                  8,
+                                  Math.min(100, (block.heightPercent / (profileScaleMax * 100)) * 100),
+                                )}%`,
+                              }}
+                            />
+                            <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-64 -translate-x-1/2 border border-[var(--foreground)] bg-white p-2 text-[10px] text-[var(--foreground)] shadow-[4px_4px_0_0_rgb(0_0_0_/_0.1)] group-hover:block group-focus:block">
+                              <p className="font-bold uppercase tracking-[0.1em]">{blockLabel}</p>
+                              <p className="mt-1 text-[var(--muted)]">
+                                Time {formatDuration(block.startSec)} - {formatDuration(block.endSec)}
+                              </p>
+                              <p className="text-[var(--muted)]">
+                                Duration {formatDuration(block.durationSec)} · {ifPercent}% FTP
+                              </p>
+                              <p className="text-[var(--muted)]">
+                                {labelForIntensity(block.intensity)}
+                                {block.includesShortBursts ? " · short interval" : ""}
+                              </p>
+                              <p className="mt-1 line-clamp-2 text-[var(--foreground)]">
+                                {targetList.slice(0, 2).join(" · ")}
+                                {targetList.length > 2 ? " …" : ""}
+                              </p>
+                              <p className="text-[var(--muted)]">Block {index + 1}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <div className="ml-[38px] mt-2 flex items-center justify-between border-t border-[var(--line)] pt-2 text-[10px] font-semibold text-[var(--muted)]">
-            {timelineTicks.map((tick) => (
-              <span key={`tick-${tick.ratio}`}>{tick.label}</span>
-            ))}
+              <div className="ml-[48px] mt-2 flex items-center justify-between border-t border-[var(--line)] pt-2 text-[10px] font-semibold text-[var(--muted)]">
+                {timelineTicks.map((tick) => (
+                  <span key={`tick-${tick.ratio}`}>{tick.label}</span>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </section>

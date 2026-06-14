@@ -15,6 +15,9 @@ export function WorkoutBuilderPage() {
 
   const {
     workout,
+    activeWorkoutPreset,
+    activeWorkoutPresetId,
+    selectedWorkoutFolder,
     ftpWatts,
     issueMap,
     profileBlocks,
@@ -49,6 +52,7 @@ export function WorkoutBuilderPage() {
     openWorkoutsModal,
     closeWorkoutsModal,
     selectWorkoutFromModal,
+    addRepeatSet,
     addPresetBlock,
     duplicateStep,
     moveStep,
@@ -118,48 +122,55 @@ export function WorkoutBuilderPage() {
         </section>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1.75fr)_minmax(280px,1fr)]">
-          <EditorPanel
-            workout={workout}
-            ftpWatts={ftpWatts}
-            issueMap={issueMap}
-            isExporting={isExporting}
-            draggedStepIndex={draggedStepIndex}
-            dropTargetIndex={dropTargetIndex}
-            ftpTourRef={ftpTourRef}
-            workoutsTourRef={workoutsTourRef}
-            blocksTourRef={blocksTourRef}
-            customTourRef={customTourRef}
-            isTourHighlightActive={isTourHighlightActive}
-            setWorkoutName={setWorkoutName}
-            setFtpValue={setFtpValue}
-            resetTemplate={resetTemplate}
-            exportWorkout={exportWorkout}
-            openWorkoutsModal={openWorkoutsModal}
-            addPresetBlock={addPresetBlock}
-            duplicateStep={duplicateStep}
-            moveStep={moveStep}
-            removeStep={removeStep}
-            updateStep={updateStep}
-            setStepIntensity={setStepIntensity}
-            setTargetType={setTargetType}
-            addStep={addStep}
-            onStepDragStart={onStepDragStart}
-            onStepDragEnd={onStepDragEnd}
-            onStepDragOver={onStepDragOver}
-            onStepDrop={onStepDrop}
-          />
+          <div className="order-1 lg:order-2">
+            <SummarySidebar
+              workout={workout}
+              profileBlocks={profileBlocks}
+              timelineTicks={timelineTicks}
+              totalDuration={totalDuration}
+              estimatedTss={estimatedTss}
+              ftpWatts={ftpWatts}
+              issueMap={issueMap}
+              exportMessage={exportMessage}
+              exportError={exportError}
+            />
+          </div>
 
-          <SummarySidebar
-            workout={workout}
-            profileBlocks={profileBlocks}
-            timelineTicks={timelineTicks}
-            totalDuration={totalDuration}
-            estimatedTss={estimatedTss}
-            ftpWatts={ftpWatts}
-            issueMap={issueMap}
-            exportMessage={exportMessage}
-            exportError={exportError}
-          />
+          <div className="order-2 lg:order-1">
+            <EditorPanel
+              workout={workout}
+              ftpWatts={ftpWatts}
+              issueMap={issueMap}
+              isExporting={isExporting}
+              activeWorkoutPreset={activeWorkoutPreset}
+              selectedWorkoutFolder={selectedWorkoutFolder}
+              draggedStepIndex={draggedStepIndex}
+              dropTargetIndex={dropTargetIndex}
+              ftpTourRef={ftpTourRef}
+              workoutsTourRef={workoutsTourRef}
+              blocksTourRef={blocksTourRef}
+              customTourRef={customTourRef}
+              isTourHighlightActive={isTourHighlightActive}
+              setWorkoutName={setWorkoutName}
+              setFtpValue={setFtpValue}
+              resetTemplate={resetTemplate}
+              exportWorkout={exportWorkout}
+              openWorkoutsModal={openWorkoutsModal}
+              addRepeatSet={addRepeatSet}
+              addPresetBlock={addPresetBlock}
+              duplicateStep={duplicateStep}
+              moveStep={moveStep}
+              removeStep={removeStep}
+              updateStep={updateStep}
+              setStepIntensity={setStepIntensity}
+              setTargetType={setTargetType}
+              addStep={addStep}
+              onStepDragStart={onStepDragStart}
+              onStepDragEnd={onStepDragEnd}
+              onStepDragOver={onStepDragOver}
+              onStepDrop={onStepDrop}
+            />
+          </div>
         </div>
       </main>
 
@@ -168,6 +179,7 @@ export function WorkoutBuilderPage() {
         workoutsModalRef={workoutsModalRef}
         quickWorkoutPresets={quickWorkoutPresets}
         workoutFolders={workoutFolders}
+        activeWorkoutPresetId={activeWorkoutPresetId}
         activeWorkoutFolder={activeWorkoutFolder}
         activeWorkoutFolderId={activeWorkoutFolderId}
         setActiveWorkoutFolderId={setActiveWorkoutFolderId}
